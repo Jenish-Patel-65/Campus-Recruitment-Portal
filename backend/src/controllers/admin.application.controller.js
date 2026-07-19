@@ -34,7 +34,7 @@ const getApplicants = async (req, res, next) => {
       FROM applications a
       INNER JOIN students s ON a.student_id = s.id
       INNER JOIN users u ON s.user_id = u.id
-      INNER JOIN resumes r ON a.resume_id = r.id
+      LEFT JOIN resumes r ON a.resume_id = r.id
       WHERE a.opportunity_id = $1
       ORDER BY a.applied_at DESC
     `;

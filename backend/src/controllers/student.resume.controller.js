@@ -13,7 +13,11 @@ const getResumes = async (req, res, next) => {
     const studentId = studentResult.rows[0].id;
 
     const resumesResult = await db.query(
-      'SELECT id, resume_name, file_url, created_at FROM resumes WHERE student_id = $1 ORDER BY created_at DESC', 
+      `SELECT r.id, r.resume_name, r.file_url, r.created_at,
+              EXISTS (SELECT 1 FROM applications a WHERE a.resume_id = r.id AND a.result = 'pending') as is_in_use
+       FROM resumes r 
+       WHERE r.student_id = $1 
+       ORDER BY r.created_at DESC`, 
       [studentId]
     );
 
@@ -56,10 +60,10 @@ const uploadResume = async (req, res, next) => {
     const countResult = await db.query('SELECT count(*) as count FROM resumes WHERE student_id = $1', [studentId]);
     const currentCount = parseInt(countResult.rows[0].count, 10);
 
-    if (currentCount >= 3) {
+    if (currentCount >= 5) {
       return res.status(400).json({ 
         status: 'error', 
-        message: 'Maximum limit of 3 resumes reached. Please delete an existing resume before uploading a new one.' 
+        message: 'Maximum limit of 5 resumes reached. Please delete an existing resume before uploading a new one.' 
       });
     }
 
@@ -121,6 +125,14 @@ const deleteResume = async (req, res, next) => {
     }
 
     const resume = checkResult.rows[0];
+
+    const appCheck = await db.query("SELECT id FROM applications WHERE resume_id = $1 AND result = 'pending' LIMIT 1", [id]);
+    if (appCheck.rows.length > 0) {
+      return res.status(400).json({ 
+        status: 'error', 
+        message: 'Cannot delete this resume because it is currently under review for a pending application.' 
+      });
+    }
 
     if (resume.file_url) {
       const { error: removeError } = await supabase.storage
