@@ -19,8 +19,20 @@ const app = express();
 
 // Middleware
 app.use(helmet()); // Standard HTTP security headers
+const allowedOrigins = process.env.FRONTEND_URL 
+  ? ['http://localhost:5173', process.env.FRONTEND_URL] 
+  : ['http://localhost:5173'];
+
 app.use(cors({
-  exposedHeaders: ['Content-Disposition']
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  exposedHeaders: ['Content-Disposition'],
+  credentials: true
 }));
 app.use(express.json());
 
