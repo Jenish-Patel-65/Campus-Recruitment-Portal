@@ -17,10 +17,12 @@ const adminStatisticsRoutes = require('./routes/admin.statistics.route');
 
 const app = express();
 
+app.set('trust proxy', 1);
+
 // Middleware
 app.use(helmet()); // Standard HTTP security headers
-const allowedOrigins = process.env.FRONTEND_URL 
-  ? ['http://localhost:5173', process.env.FRONTEND_URL] 
+const allowedOrigins = process.env.FRONTEND_URL
+  ? ['http://localhost:5173', process.env.FRONTEND_URL]
   : ['http://localhost:5173'];
 
 app.use(cors({
