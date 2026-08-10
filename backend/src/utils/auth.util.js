@@ -2,10 +2,10 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
 const SALT_ROUNDS = 10;
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-for-dev-only';
-const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET || 'fallback-refresh-secret-for-dev-only';
-const JWT_EXPIRES_IN = '15m'; // Access token is short-lived
-const REFRESH_EXPIRES_IN = '7d'; // Refresh token is long-lived
+const JWT_SECRET = process.env.JWT_SECRET;
+const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET;
+const JWT_EXPIRES_IN = '15m';
+const REFRESH_EXPIRES_IN = '7d';
 
 // Passwords
 const hashPassword = async (password) => {
@@ -45,7 +45,6 @@ const verifyRefreshToken = (token) => {
 };
 
 // Stateless Password Reset Token
-// Use combination of JWT_SECRET and password hash for stateless token
 const generateResetToken = (user) => {
   const payload = {
     id: user.id,

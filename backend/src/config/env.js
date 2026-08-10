@@ -5,7 +5,7 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   DATABASE_URL: z.string().url('DATABASE_URL must be a valid URL'),
   JWT_SECRET: z.string().min(10, 'JWT_SECRET must be at least 10 characters long'),
-  REFRESH_TOKEN_SECRET: z.string().min(10, 'REFRESH_TOKEN_SECRET must be at least 10 characters long').optional().default('fallback-refresh-secret-for-dev-only'),
+  REFRESH_TOKEN_SECRET: z.string().min(10, 'REFRESH_TOKEN_SECRET must be at least 10 characters long'),
   RESEND_API_KEY: z.string().optional(),
   FRONTEND_URL: z.string().url().default('http://localhost:5173'),
 });

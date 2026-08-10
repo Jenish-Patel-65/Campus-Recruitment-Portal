@@ -150,6 +150,7 @@ const exportApplicantsCSV = async (req, res, next) => {
 
     const query = `
       SELECT 
+        a.id AS application_id,
         s.name, 
         s.student_id,
         u.email AS institute_email, 
