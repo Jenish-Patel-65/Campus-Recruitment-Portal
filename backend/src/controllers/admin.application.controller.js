@@ -150,7 +150,6 @@ const exportApplicantsCSV = async (req, res, next) => {
 
     const query = `
       SELECT 
-        a.id AS application_id,
         s.name, 
         s.student_id,
         u.email AS institute_email, 
@@ -173,7 +172,7 @@ const exportApplicantsCSV = async (req, res, next) => {
     const result = await db.query(query, [id]);
 
     const headers = [
-      'Application ID', 'Student ID', 'Name', 'Institute Email', 'Alternate Email', 'Phone Number', 
+      'Student ID', 'Name', 'Institute Email', 'Alternate Email', 'Phone Number', 
       'Degree', 'Branch', 'Academic Year', 'CGPA', 'Active Backlogs', 
       '10th Percentage', '12th Percentage'
     ];
@@ -182,7 +181,6 @@ const exportApplicantsCSV = async (req, res, next) => {
 
     result.rows.forEach(row => {
       const rowData = [
-        row.application_id,
         row.student_id,
         row.name,
         row.institute_email,
@@ -222,7 +220,7 @@ const exportApplicantResumesZip = async (req, res, next) => {
     const opp = oppCheck.rows[0];
 
     const query = `
-      SELECT s.id AS student_id, s.name, r.file_url 
+      SELECT s.student_id, s.name, r.file_url 
       FROM applications a
       INNER JOIN students s ON a.student_id = s.id
       INNER JOIN resumes r ON a.resume_id = r.id

@@ -17,7 +17,7 @@ const getResumes = async (req, res, next) => {
               EXISTS (SELECT 1 FROM applications a WHERE a.resume_id = r.id AND a.result = 'pending') as is_in_use
        FROM resumes r 
        WHERE r.student_id = $1 
-       ORDER BY r.created_at DESC`, 
+       ORDER BY r.created_at DESC`,
       [studentId]
     );
 
@@ -28,7 +28,7 @@ const getResumes = async (req, res, next) => {
         const { data, error } = await supabase.storage
           .from('resumes')
           .createSignedUrl(resume.file_url, 3600); // 1 hour expiry
-          
+
         if (!error && data) {
           resume.signed_url = data.signedUrl;
         }
@@ -61,9 +61,9 @@ const uploadResume = async (req, res, next) => {
     const currentCount = parseInt(countResult.rows[0].count, 10);
 
     if (currentCount >= 5) {
-      return res.status(400).json({ 
-        status: 'error', 
-        message: 'Maximum limit of 5 resumes reached. Please delete an existing resume before uploading a new one.' 
+      return res.status(400).json({
+        status: 'error',
+        message: 'Maximum limit of 5 resumes reached. Please delete an existing resume before uploading a new one.'
       });
     }
 
@@ -96,8 +96,8 @@ const uploadResume = async (req, res, next) => {
 
     newResume.signed_url = signedData?.signedUrl;
 
-    res.status(201).json({ 
-      status: 'success', 
+    res.status(201).json({
+      status: 'success',
       message: 'Resume uploaded successfully',
       data: newResume
     });
@@ -128,9 +128,9 @@ const deleteResume = async (req, res, next) => {
 
     const appCheck = await db.query("SELECT id FROM applications WHERE resume_id = $1 AND result = 'pending' LIMIT 1", [id]);
     if (appCheck.rows.length > 0) {
-      return res.status(400).json({ 
-        status: 'error', 
-        message: 'Cannot delete this resume because it is currently under review for a pending application.' 
+      return res.status(400).json({
+        status: 'error',
+        message: 'Cannot delete this resume because it is currently under review for a pending application.'
       });
     }
 
@@ -138,7 +138,7 @@ const deleteResume = async (req, res, next) => {
       const { error: removeError } = await supabase.storage
         .from('resumes')
         .remove([resume.file_url]);
-        
+
       if (removeError) {
         console.error('Failed to remove resume file from storage:', removeError);
       }

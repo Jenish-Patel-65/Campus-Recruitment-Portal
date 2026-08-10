@@ -198,9 +198,31 @@ const importStudentsCSV = async (req, res, next) => {
         for (const item of results) {
           const { row, data } = item;
           
-          const institute_email = data.institute_email?.trim();
-          const personal_email = data.personal_email?.trim();
-          const student_id = data.student_id?.trim();
+          const studentData = {
+            institute_email: data.institute_email?.trim(),
+            personal_email: data.personal_email?.trim() || null,
+            student_id: data.student_id?.trim(),
+            name: data.name?.trim(),
+            degree: data.degree?.trim(),
+            branch: data.branch?.trim(),
+            academic_year: data.academic_year?.trim(),
+            cgpa: data.cgpa ? parseFloat(data.cgpa) : null,
+            tenth_percentage: data.tenth_percentage ? parseFloat(data.tenth_percentage) : null,
+            twelfth_percentage: data.twelfth_percentage ? parseFloat(data.twelfth_percentage) : null,
+            active_backlogs: data.active_backlogs ? parseInt(data.active_backlogs, 10) : 0
+          };
+
+          const validationResult = addStudentSchema.safeParse(studentData);
+          if (!validationResult.success) {
+            const errors = validationResult.error.issues.map(e => `${e.path.join('.')} - ${e.message}`).join(', ');
+            throw new Error(`Row ${row}: ${errors}`);
+          }
+
+          const {
+            institute_email, personal_email, student_id, name, degree, branch,
+            academic_year, cgpa, tenth_percentage: tenth, twelfth_percentage: twelfth,
+            active_backlogs: backlogs
+          } = studentData;
 
           const existCheck = await client.query(`
             SELECT s.id, u.id as user_id 
@@ -208,16 +230,6 @@ const importStudentsCSV = async (req, res, next) => {
             JOIN users u ON s.user_id = u.id 
             WHERE u.email = $1 OR s.student_id = $2
           `, [institute_email, student_id]);
-
-          const cgpa = data.cgpa ? parseFloat(data.cgpa) : null;
-          const tenth = data.tenth_percentage ? parseFloat(data.tenth_percentage) : null;
-          const twelfth = data.twelfth_percentage ? parseFloat(data.twelfth_percentage) : null;
-          const backlogs = data.active_backlogs ? parseInt(data.active_backlogs, 10) : 0;
-
-          const academic_year = data.academic_year?.trim();
-          if (!academic_year || !['pre_final_year', 'final_year'].includes(academic_year)) {
-            throw new Error(`Row ${row}: Valid academic_year is required (pre_final_year or final_year)`);
-          }
 
           if (existCheck.rows.length > 0) {
             const studentId = existCheck.rows[0].id;
@@ -229,7 +241,7 @@ const importStudentsCSV = async (req, res, next) => {
                   updated_at = now()
               WHERE id = $10
             `, [
-              data.name, data.degree, data.branch, academic_year,
+              name, degree, branch, academic_year,
               cgpa, tenth, twelfth, backlogs, personal_email, studentId
             ]);
             updated++;
@@ -246,7 +258,7 @@ const importStudentsCSV = async (req, res, next) => {
                 cgpa, tenth_percentage, twelfth_percentage, active_backlogs
               ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
             `, [
-              userResult.rows[0].id, data.name, student_id, personal_email, data.degree, data.branch, academic_year,
+              userResult.rows[0].id, name, student_id, personal_email, degree, branch, academic_year,
               cgpa, tenth, twelfth, backlogs
             ]);
             inserted++;
