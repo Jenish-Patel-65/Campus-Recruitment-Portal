@@ -1,5 +1,6 @@
 const db = require('../db');
 const archiver = require('archiver');
+const { getPaginationParams, formatPaginatedResponse } = require('../utils/pagination.util');
 
 // Get Applicants
 const getApplicants = async (req, res, next) => {
@@ -11,7 +12,13 @@ const getApplicants = async (req, res, next) => {
       return res.status(404).json({ status: 'error', message: 'Opportunity not found' });
     }
 
-    const query = `
+    const { page, limit, offset } = getPaginationParams(req.query);
+    const search = req.query.search || '';
+
+    let countQuery = 'SELECT count(*) FROM applications a INNER JOIN students s ON a.student_id = s.id WHERE a.opportunity_id = $1';
+    let countParams = [id];
+
+    let query = `
       SELECT 
         a.id AS application_id, 
         a.result, 
@@ -36,10 +43,22 @@ const getApplicants = async (req, res, next) => {
       INNER JOIN users u ON s.user_id = u.id
       LEFT JOIN resumes r ON a.resume_id = r.id
       WHERE a.opportunity_id = $1
-      ORDER BY a.applied_at DESC
     `;
+    let queryParams = [id, limit, offset];
+
+    if (search) {
+      countQuery += ' AND s.student_id ILIKE $2';
+      countParams.push(`%${search}%`);
+      query += ' AND s.student_id ILIKE $4';
+      queryParams.push(`%${search}%`);
+    }
+
+    query += ' ORDER BY a.applied_at DESC, a.id ASC LIMIT $2 OFFSET $3';
+
+    const countCheck = await db.query(countQuery, countParams);
+    const totalRecords = countCheck.rows[0].count;
     
-    const result = await db.query(query, [id]);
+    const result = await db.query(query, queryParams);
 
     const supabase = require('../config/supabase');
     
@@ -59,7 +78,7 @@ const getApplicants = async (req, res, next) => {
       return app;
     }));
 
-    res.status(200).json({ status: 'success', data: applicants });
+    res.status(200).json(formatPaginatedResponse(applicants, totalRecords, page, limit));
   } catch (error) {
     next(error);
   }

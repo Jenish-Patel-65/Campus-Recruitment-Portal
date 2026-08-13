@@ -1,5 +1,6 @@
 const db = require('../db');
 const supabase = require('../config/supabase');
+const { getPaginationParams, formatPaginatedResponse } = require('../utils/pagination.util');
 
 // Get My Applications
 const getMyApplications = async (req, res, next) => {
@@ -11,6 +12,41 @@ const getMyApplications = async (req, res, next) => {
       return res.status(200).json({ status: 'success', data: [] });
     }
     const student = studentResult.rows[0];
+
+    const { page, limit, offset } = getPaginationParams(req.query);
+
+    const parseVal = (val) => val === null || val === undefined ? null : parseFloat(val);
+    const cgpa = parseVal(student.cgpa);
+    const backlogs = parseInt(student.active_backlogs || 0);
+    const tenth = parseVal(student.tenth_percentage);
+    const twelfth = parseVal(student.twelfth_percentage);
+
+    const countQuery = `
+      SELECT count(*) 
+      FROM opportunities o
+      INNER JOIN opportunity_eligible_degrees od ON o.id = od.opportunity_id
+      LEFT JOIN applications a ON o.id = a.opportunity_id AND a.student_id = $1
+      WHERE od.degree = $2 
+        AND (
+          ($3 = 'pre_final_year' AND o.opportunity_type = 'summer_internship')
+          OR
+          ($3 = 'final_year' AND o.opportunity_type IN ('job', 'winter_internship', 'winter_internship_job'))
+        )
+        AND (
+          a.id IS NOT NULL 
+          OR (o.min_cgpa IS NOT NULL AND $4 < o.min_cgpa)
+          OR (o.max_active_backlogs IS NOT NULL AND $5 > o.max_active_backlogs)
+          OR (o.min_tenth_percentage IS NOT NULL AND $6 < o.min_tenth_percentage)
+          OR (o.min_twelfth_percentage IS NOT NULL AND $7 < o.min_twelfth_percentage)
+          OR o.registration_end < CURRENT_TIMESTAMP
+        )
+    `;
+
+    const countResult = await db.query(countQuery, [
+      student.id, student.degree, student.academic_year, 
+      cgpa || 0, backlogs, tenth || 0, twelfth || 0
+    ]);
+    const totalRecords = countResult.rows[0].count;
 
     const query = `
       SELECT 
@@ -44,18 +80,30 @@ const getMyApplications = async (req, res, next) => {
           OR
           ($3 = 'final_year' AND o.opportunity_type IN ('job', 'winter_internship', 'winter_internship_job'))
         )
-      ORDER BY o.registration_end DESC
+        AND (
+          a.id IS NOT NULL 
+          OR (o.min_cgpa IS NOT NULL AND $4 < o.min_cgpa)
+          OR (o.max_active_backlogs IS NOT NULL AND $5 > o.max_active_backlogs)
+          OR (o.min_tenth_percentage IS NOT NULL AND $6 < o.min_tenth_percentage)
+          OR (o.min_twelfth_percentage IS NOT NULL AND $7 < o.min_twelfth_percentage)
+          OR o.registration_end < CURRENT_TIMESTAMP
+        )
+      ORDER BY o.registration_end DESC, o.id ASC
+      LIMIT $8 OFFSET $9
     `;
 
-    const result = await db.query(query, [student.id, student.degree, student.academic_year]);
+    const result = await db.query(query, [
+      student.id, student.degree, student.academic_year, 
+      cgpa || 0, backlogs, tenth || 0, twelfth || 0,
+      limit, offset
+    ]);
 
-    const opportunities = result.rows.map(opp => {
-      const parseVal = (val) => val === null || val === undefined ? null : parseFloat(val);
+    const filteredOpportunities = result.rows.map(opp => {
       const isEligible = 
-        (opp.min_cgpa === null || parseVal(student.cgpa) >= parseVal(opp.min_cgpa)) &&
-        (opp.max_active_backlogs === null || parseInt(student.active_backlogs || 0) <= parseInt(opp.max_active_backlogs)) &&
-        (opp.min_tenth_percentage === null || parseVal(student.tenth_percentage) >= parseVal(opp.min_tenth_percentage)) &&
-        (opp.min_twelfth_percentage === null || parseVal(student.twelfth_percentage) >= parseVal(opp.min_twelfth_percentage));
+        (opp.min_cgpa === null || cgpa >= parseVal(opp.min_cgpa)) &&
+        (opp.max_active_backlogs === null || backlogs <= parseInt(opp.max_active_backlogs)) &&
+        (opp.min_tenth_percentage === null || tenth >= parseVal(opp.min_tenth_percentage)) &&
+        (opp.min_twelfth_percentage === null || twelfth >= parseVal(opp.min_twelfth_percentage));
 
       return {
         ...opp,
@@ -64,14 +112,7 @@ const getMyApplications = async (req, res, next) => {
       };
     });
 
-    const filteredOpportunities = opportunities.filter(opp => {
-      if (opp.hasApplied) return true; // Show immediately if applied
-      if (!opp.isEligible) return true; // Show immediately if not eligible
-      
-      return new Date(opp.registration_end) < new Date();
-    });
-
-    res.status(200).json({ status: 'success', data: filteredOpportunities });
+    res.status(200).json(formatPaginatedResponse(filteredOpportunities, totalRecords, page, limit));
   } catch (error) {
     next(error);
   }

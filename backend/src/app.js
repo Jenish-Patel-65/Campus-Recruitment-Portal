@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const cookieParser = require('cookie-parser');
 const errorHandler = require('./middleware/error.middleware');
 
 // Routes
@@ -37,6 +38,7 @@ app.use(cors({
   credentials: true
 }));
 app.use(express.json());
+app.use(cookieParser());
 
 // Basic request logging middleware
 app.use((req, res, next) => {

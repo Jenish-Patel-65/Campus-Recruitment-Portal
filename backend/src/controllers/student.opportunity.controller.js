@@ -1,4 +1,5 @@
 const db = require('../db');
+const { getPaginationParams, formatPaginatedResponse } = require('../utils/pagination.util');
 
 // Helper to determine status based on start/end dates
 const deriveStatus = (start, end) => {
@@ -22,6 +23,22 @@ const getOpportunities = async (req, res, next) => {
     }
     const student = studentResult.rows[0];
 
+    const { page, limit, offset } = getPaginationParams(req.query);
+
+    const countQuery = `
+      SELECT count(*) 
+      FROM opportunities o
+      INNER JOIN opportunity_eligible_degrees od ON o.id = od.opportunity_id
+      WHERE od.degree = $1
+        AND (
+          ($2 = 'pre_final_year' AND o.opportunity_type = 'summer_internship')
+          OR
+          ($2 = 'final_year' AND o.opportunity_type IN ('job', 'winter_internship', 'winter_internship_job'))
+        )
+    `;
+    const countResult = await db.query(countQuery, [student.degree, student.academic_year]);
+    const totalRecords = countResult.rows[0].count;
+
     const query = `
       SELECT o.id, o.company_name, o.role, o.opportunity_type, o.location, 
              o.package_stipend, o.registration_start, o.registration_end, o.created_at
@@ -33,17 +50,18 @@ const getOpportunities = async (req, res, next) => {
           OR
           ($2 = 'final_year' AND o.opportunity_type IN ('job', 'winter_internship', 'winter_internship_job'))
         )
-      ORDER BY o.created_at DESC
+      ORDER BY o.created_at DESC, o.id ASC
+      LIMIT $3 OFFSET $4
     `;
     
-    const result = await db.query(query, [student.degree, student.academic_year]);
+    const result = await db.query(query, [student.degree, student.academic_year, limit, offset]);
 
     const opportunities = result.rows.map(opp => ({
       ...opp,
       status: deriveStatus(opp.registration_start, opp.registration_end)
     }));
 
-    res.status(200).json({ status: 'success', data: opportunities });
+    res.status(200).json(formatPaginatedResponse(opportunities, totalRecords, page, limit));
   } catch (error) {
     next(error);
   }

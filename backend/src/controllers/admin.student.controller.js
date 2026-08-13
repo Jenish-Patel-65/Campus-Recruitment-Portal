@@ -2,16 +2,38 @@ const db = require('../db');
 const csv = require('csv-parser');
 const stream = require('stream');
 
+const { getPaginationParams, formatPaginatedResponse } = require('../utils/pagination.util');
+
 // Fetch all students with their linked user email
 const getStudents = async (req, res, next) => {
   try {
-    const result = await db.query(`
+    const { page, limit, offset } = getPaginationParams(req.query);
+    const search = req.query.search || '';
+
+    let countQuery = 'SELECT count(*) FROM students';
+    let countParams = [];
+    let dataQuery = `
       SELECT s.*, u.email as institute_email 
       FROM students s 
       JOIN users u ON s.user_id = u.id 
-      ORDER BY s.student_id ASC
-    `);
-    res.status(200).json({ status: 'success', data: result.rows });
+    `;
+    let dataParams = [limit, offset];
+
+    if (search) {
+      countQuery += ' WHERE student_id ILIKE $1';
+      countParams.push(`%${search}%`);
+      dataQuery += ' WHERE s.student_id ILIKE $3';
+      dataParams.push(`%${search}%`);
+    }
+
+    dataQuery += ' ORDER BY s.student_id ASC, s.id ASC LIMIT $1 OFFSET $2';
+
+    const countResult = await db.query(countQuery, countParams);
+    const totalRecords = countResult.rows[0].count;
+
+    const result = await db.query(dataQuery, dataParams);
+    
+    res.status(200).json(formatPaginatedResponse(result.rows, totalRecords, page, limit));
   } catch (error) {
     next(error);
   }

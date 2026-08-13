@@ -1,13 +1,11 @@
 const { verifyAuthToken } = require('../utils/auth.util');
 
 const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
+  const token = req.cookies?.token;
   
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  if (!token) {
     return res.status(401).json({ status: 'error', message: 'Authentication required. No token provided.' });
   }
-
-  const token = authHeader.split(' ')[1];
 
   try {
     const decoded = verifyAuthToken(token);

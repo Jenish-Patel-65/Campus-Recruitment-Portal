@@ -1,4 +1,5 @@
 const db = require('../db');
+const { getPaginationParams, formatPaginatedResponse } = require('../utils/pagination.util');
 
 // Helper to determine status based on start/end dates
 const deriveStatus = (start, end) => {
@@ -14,20 +15,26 @@ const deriveStatus = (start, end) => {
 // Get Opportunities
 const getOpportunities = async (req, res, next) => {
   try {
+    const { page, limit, offset } = getPaginationParams(req.query);
+
+    const countResult = await db.query('SELECT count(*) FROM opportunities');
+    const totalRecords = countResult.rows[0].count;
+
     const result = await db.query(`
       SELECT 
         id, company_name, role, opportunity_type, location, 
         package_stipend, registration_start, registration_end, created_at
       FROM opportunities
-      ORDER BY created_at DESC
-    `);
+      ORDER BY created_at DESC, id ASC
+      LIMIT $1 OFFSET $2
+    `, [limit, offset]);
 
     const opportunities = result.rows.map(opp => ({
       ...opp,
       status: deriveStatus(opp.registration_start, opp.registration_end)
     }));
 
-    res.status(200).json({ status: 'success', data: opportunities });
+    res.status(200).json(formatPaginatedResponse(opportunities, totalRecords, page, limit));
   } catch (error) {
     next(error);
   }

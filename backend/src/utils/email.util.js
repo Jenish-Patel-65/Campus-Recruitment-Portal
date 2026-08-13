@@ -1,14 +1,12 @@
-const { Resend } = require('resend');
-
 const sendPasswordResetEmail = async (toEmail, resetLink) => {
   try {
-    if (!process.env.RESEND_API_KEY) {
-      console.error('RESEND_API_KEY is missing. Password reset email cannot be sent.');
+    if (!process.env.BREVO_API_KEY) {
+      console.error('BREVO_API_KEY is missing. Password reset email cannot be sent.');
       return false;
     }
     
-    const resend = new Resend(process.env.RESEND_API_KEY);
-    const fromAddress = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev'; // Fallback to test domain if not configured
+    const fromAddress = process.env.BREVO_FROM_EMAIL;
+    const fromName = 'Campus Recruitment Portal';
 
     const htmlContent = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -24,23 +22,35 @@ const sendPasswordResetEmail = async (toEmail, resetLink) => {
         <p>This link will expire in 15 minutes.</p>
         <p>If you did not request this reset, you can safely ignore this email.</p>
         <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;" />
-        <p style="font-size: 12px; color: #6b7280;">Placement Cell</p>
+        <p style="font-size: 12px; color: #6b7280;">Campus Recruitment Portal</p>
       </div>
     `;
 
-    const { data, error } = await resend.emails.send({
-      from: `Placement Portal <${fromAddress}>`,
-      to: [toEmail],
+    const payload = {
+      sender: { name: fromName, email: fromAddress },
+      to: [{ email: toEmail }],
       subject: 'Password Reset - Campus Recruitment Portal',
-      html: htmlContent,
+      htmlContent: htmlContent,
+    };
+
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'api-key': process.env.BREVO_API_KEY
+      },
+      body: JSON.stringify(payload)
     });
 
-    if (error) {
-      console.error(`Resend API Error when sending to ${toEmail}:`, error);
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error(`Brevo API Error when sending to ${toEmail}:`, errorData);
       return false;
     }
 
-    console.log(`Password reset email sent to ${toEmail}. Message ID: ${data.id}`);
+    const data = await response.json();
+    console.log(`Password reset email sent to ${toEmail}. Message ID: ${data.messageId}`);
     return true;
   } catch (error) {
     console.error(`Failed to send password reset email to ${toEmail}:`, error);

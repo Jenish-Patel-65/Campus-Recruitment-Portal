@@ -1,5 +1,6 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 
 const SALT_ROUNDS = 10;
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -32,16 +33,12 @@ const verifyAuthToken = (token) => {
 };
 
 // Refresh Token
-const generateRefreshToken = (user) => {
-  const payload = {
-    id: user.id,
-    type: 'refresh'
-  };
-  return jwt.sign(payload, REFRESH_TOKEN_SECRET, { expiresIn: REFRESH_EXPIRES_IN });
+const generateRefreshToken = () => {
+  return crypto.randomBytes(40).toString('hex');
 };
 
-const verifyRefreshToken = (token) => {
-  return jwt.verify(token, REFRESH_TOKEN_SECRET);
+const hashToken = (token) => {
+  return crypto.createHash('sha256').update(token).digest('hex');
 };
 
 // Stateless Password Reset Token
@@ -65,7 +62,7 @@ module.exports = {
   generateAuthToken,
   verifyAuthToken,
   generateRefreshToken,
-  verifyRefreshToken,
+  hashToken,
   generateResetToken,
   verifyResetToken,
 };
