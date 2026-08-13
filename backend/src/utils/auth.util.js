@@ -4,9 +4,8 @@ const crypto = require('crypto');
 
 const SALT_ROUNDS = 10;
 const JWT_SECRET = process.env.JWT_SECRET;
-const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET;
 const JWT_EXPIRES_IN = '15m';
-const REFRESH_EXPIRES_IN = '7d';
+
 
 // Passwords
 const hashPassword = async (password) => {
